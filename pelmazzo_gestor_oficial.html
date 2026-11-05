@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pelmazzo | Gestor Oficial de Grupos, Cronograma y Llaves</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body { background-color: #0A0A0C; color: #FFFFFF; font-family: 'Montserrat', sans-serif; }
+    .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1.5px; }
+    .gold-text { color: #D4AF37; }
+    .winner-active { background: linear-gradient(90deg, #D4AF37 0%, #AA8215 100%); color: #0A0A0C !important; font-weight: 900; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0A0A0C; }
+    ::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+
+  <!-- LISTA DE AUTOCOMPLETADO DE EQUIPOS -->
+  <datalist id="teamsPool">
+    <option value="TUPAC Y GRINGBERG"></option>
+    <option value="PABLO Y GIUNTA"></option>
+    <option value="VELEZ Y ABUDI"></option>
+    <option value="FUENTES Y MONTAÑO"></option>
+    <option value="PERILLO"></option>
+    <option value="BURGOS"></option>
+    <option value="TORRES Y SCASO"></option>
+    <option value="VELAZQUEZ Y LENTO"></option>
+    <option value="EMILIO G. Y VICKY ALVAREZ"></option>
+    <option value="SORIA Y VIÑASKA"></option>
+    <option value="GOLICIANO Y COLON"></option>
+    <option value="MAMANÍ Y SARAZOLA"></option>
+    <option value="VILLAR Y MONTERO"></option>
+    <option value="CÉSAR Y AGUIRRE"></option>
+    <option value="ESTEBAN S. Y LUCHO"></option>
+    <option value="ALANIS Y VELLIDO"></option>
+    <option value="ANTO SLY Y CATO"></option>
+    <option value="PEÑALBA Y TULA"></option>
+    <option value="PAREDES Y SIMI"></option>
+    <option value="IMA Y GUTIERREZ"></option>
+    <option value="PISTONE Y MAGNO"></option>
+  </datalist>
+
+  <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- PANEL DE CONTROL -->
+    <div class="lg:col-span-7 space-y-4 bg-[#141418] p-5 rounded-2xl border border-[#D4AF37]/40 shadow-2xl">
+      
+      <!-- CABECERA Y SELECTOR DE VISTA -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <div>
+          <h1 class="font-display text-4xl gold-text leading-none">PELMAZZO — GESTOR OFICIAL</h1>
+          <p class="text-xs text-gray-400 mt-1">Armá los grupos a mano, generá los turnos en 6 mesas y anotá resultados y <span class="text-[#D4AF37] font-bold">Dif (+)</span>.</p>
+        </div>
+        <select id="stageSelector" onchange="switchStage(this.value)" class="bg-[#0A0A0C] text-[#D4AF37] font-bold border border-[#D4AF37] rounded-xl px-3 py-2.5 text-xs sm:text-sm outline-none">
+          <option value="armar_grupos">0. ARMAR GRUPOS Y EQUIPOS (MANUAL)</option>
+          <option value="grupos_partidos">1. CRONOGRAMA Y PARTIDOS (6 MESAS)</option>
+          <option value="grupos_tablas">2. TABLAS DE POSICIONES Y DIFERENCIA</option>
+          <option value="octavos">3. OCTAVOS DE FINAL (8 Llaves)</option>
+          <option value="cuartos">4. CUARTOS DE FINAL (4 Llaves)</option>
+          <option value="semis">5. SEMIFINALES (2 Llaves)</option>
+          <option value="final">6. GRAN FINAL Y CAMPEÓN</option>
+          <option value="cuadro">7. CUADRO COMPLETO (8vos a Final)</option>
+        </select>
+      </div>
+
+      <!-- BARRA DE ACCIONES RÁPIDAS -->
+      <div class="flex flex-wrap items-center justify-between gap-2 bg-[#0A0A0C] p-3 rounded-xl border border-[#D4AF37]/30">
+        <button onclick="rebuildScheduleFromGroups(true)" class="bg-[#D4AF37] hover:bg-[#e5c247] text-black font-black px-3.5 py-2 rounded-lg text-xs uppercase transition shadow">
+          🔄 Generar Cronograma en 6 Mesas
+        </button>
+        <button onclick="autoQualifyToOctavos()" class="bg-[#D4AF37]/20 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black border border-[#D4AF37] font-black px-3.5 py-2 rounded-lg text-xs uppercase transition">
+          ⚡ Enviar Clasificados a 8vos
+        </button>
+      </div>
+
+      <!-- CONTENEDOR DINÁMICO DE PARTIDOS / GRUPOS -->
+      <div id="matchesControl" class="space-y-4 max-h-[58vh] overflow-y-auto pr-1"></div>
+
+      <!-- BOTONES DE ACCIÓN, RESPALDO Y DESCARGA -->
+      <div class="flex flex-wrap gap-2 pt-3 border-t border-white/10">
+        <button onclick="downloadStory()" class="flex-1 min-w-[200px] bg-[#D4AF37] hover:bg-[#e5c247] text-black font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-lg">
+          ⬇ Descargar Historia 9:16 (PNG)
+        </button>
+        <button onclick="exportBackup()" class="bg-blue-900/60 hover:bg-blue-800 text-blue-200 border border-blue-600/50 font-bold py-3 px-3.5 rounded-xl text-xs uppercase transition flex items-center gap-1.5">
+          💾 Guardar Respaldo
+        </button>
+        <label class="bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/50 font-bold py-3 px-3.5 rounded-xl text-xs uppercase transition cursor-pointer flex items-center gap-1.5">
+          📂 Cargar Respaldo
+          <input type="file" accept=".json" onchange="importBackup(event)" class="hidden" />
+        </label>
+        <button onclick="clearAllTeamNames()" class="bg-zinc-800 hover:bg-zinc-700 text-gray-200 font-bold py-3 px-3 rounded-xl text-xs uppercase transition">
+          Vaciar Nombres
+        </button>
+        <button onclick="resetAll()" class="bg-red-950/60 hover:bg-red-900 text-red-200 border border-red-700/50 font-bold py-3 px-3 rounded-xl text-xs uppercase transition">
+          Reiniciar Todo
+        </button>
+      </div>
+    </div>
+
+    <!-- PREVISUALIZACIÓN EN VIVO (CANVAS 9:16) -->
+    <div class="lg:col-span-5 flex flex-col items-center">
+      <p class="text-xs uppercase tracking-widest text-gray-400 mb-2">Vista Previa Instagram Story (1080x1920px)</p>
+      <div class="w-full max-w-[360px] rounded-2xl overflow-hidden border-2 border-[#D4AF37]/60 shadow-[0_0_40px_rgba(212,175,55,0.2)]">
+        <canvas id="storyCanvas" width="1080" height="1920" class="w-full h-auto block"></canvas>
+      </div>
+    </div>
+  </div>
+
+<script>
+const DEFAULT_GROUPS = [
+  { id: 1, name: "GRUPO 1", teams: ["TUPAC Y GRINGBERG", "PABLO Y GIUNTA", "VELEZ Y ABUDI"] },
+  { id: 2, name: "GRUPO 2", teams: ["FUENTES Y MONTAÑO", "PERILLO", "BURGOS"] },
+  { id: 3, name: "GRUPO 3", teams: ["TORRES Y SCASO", "VELAZQUEZ Y LENTO", "EMILIO G. Y VICKY ALVAREZ"] },
+  { id: 4, name: "GRUPO 4", teams: ["SORIA Y VIÑASKA", "GOLICIANO Y COLON", "MAMANÍ Y SARAZOLA", "VILLAR Y MONTERO"] },
+  { id: 5, name: "GRUPO 5", teams: ["CÉSAR Y AGUIRRE", "ESTEBAN S. Y LUCHO", "ALANIS Y VELLIDO"] },
+  { id: 6, name: "GRUPO 6", teams: ["ANTO SLY Y CATO", "PEÑALBA Y TULA", "PAREDES Y SIMI"] }
+];
+
+function generateScheduleForGroups(groups) {
+  const roundsByGroup = {};
+  groups.forEach(g => {
+    const t = g.teams.map((name, i) => (name && name.trim() !== "") ? name.trim().toUpperCase() : `EQUIPO ${g.id}-${i+1}`);
+    if (t.length === 4) {
+      roundsByGroup[g.id] = [
+        [ { t1: t[0], t2: t[1] }, { t1: t[2], t2: t[3] } ],
+        [ { t1: t[0], t2: t[2] }, { t1: t[1], t2: t[3] } ],
+        [ { t1: t[0], t2: t[3] }, { t1: t[1], t2: t[2] } ]
+      ];
+    } else {
+      roundsByGroup[g.id] = [
+        [ { t1: t[0] || "EQ 1", t2: t[1] || "EQ 2" } ],
+        [ { t1: t[1] || "EQ 2", t2: t[2] || "EQ 3" } ],
+        [ { t1: t[0] || "EQ 1", t2: t[2] || "EQ 3" } ]
+      ];
+    }
+  });
+
+  const pending = [];
+  for (let r = 0; r < 3; r++) {
+    groups.forEach(g => {
+      const rMatches = roundsByGroup[g.id][r] || [];
+      rMatches.forEach((m, idx) => {
+        pending.push({
+          id: `G${g.id}-R${r+1}-${idx+1}`,
+          group: g.id,
+          prefTable: g.id,
+          t1: m.t1,
+          t2: m.t2,
+          w: 0,
+          dif: ""
+        });
+      });
+    });
+  }
+
+  const slotTimes = ["11:00 HS", "11:15 HS", "11:30 HS", "11:45 HS", "12:00 HS", "12:15 HS"];
+  const scheduled = [];
+  let turno = 1;
+
+  while (pending.length > 0 && turno <= 6) {
+    const busyTeams = new Set();
+    const usedTables = new Set();
+    const turnMatches = [];
+
+    // 1° pasada: priorizar mesa asignada a la zona
+    for (let i = 0; i < pending.length && turnMatches.length < 6; i++) {
+      const m = pending[i];
+      if (!busyTeams.has(m.t1) && !busyTeams.has(m.t2) && !usedTables.has(m.prefTable)) {
+        busyTeams.add(m.t1);
+        busyTeams.add(m.t2);
+        usedTables.add(m.prefTable);
+        m.turno = turno;
+        m.hora = slotTimes[turno - 1] || "12:00 HS";
+        m.mesa = `MESA ${m.prefTable}`;
+        turnMatches.push(m);
+        pending.splice(i, 1);
+        i--;
+      }
+    }
+
+    // 2° pasada: asignar mesas vacías para partidos extras de zonas de 4
+    for (let i = 0; i < pending.length && turnMatches.length < 6; i++) {
+      const m = pending[i];
+      if (!busyTeams.has(m.t1) && !busyTeams.has(m.t2)) {
+        let freeTable = 1;
+        while (usedTables.has(freeTable) && freeTable <= 6) freeTable++;
+        if (freeTable <= 6) {
+          busyTeams.add(m.t1);
+          busyTeams.add(m.t2);
+          usedTables.add(freeTable);
+          m.turno = turno;
+          m.hora = slotTimes[turno - 1] || "12:00 HS";
+          m.mesa = `MESA ${freeTable}`;
+          turnMatches.push(m);
+          pending.splice(i, 1);
+          i--;
+        }
+      }
+    }
+
+    scheduled.push(...turnMatches);
+    turno++;
+  }
+
+  return scheduled;
+}
+
+function getDefaultState() {
+  const groups = JSON.parse(JSON.stringify(DEFAULT_GROUPS));
+  return {
+    currentView: "armar_grupos",
+    groups: groups,
+    groupMatches: generateScheduleForGroups(groups),
+    octavos: [
+      { id: "O1", t1: "1° GRUPO 1", t2: "4° MEJOR 3°", w: 0, dif: "", hora: "12:00 HS - MESA 1" },
+      { id: "O2", t1: "1° GRUPO 2", t2: "3° MEJOR 3°", w: 0, dif: "", hora: "12:00 HS - MESA 2" },
+      { id: "O3", t1: "1° GRUPO 3", t2: "2° MEJOR 3°", w: 0, dif: "", hora: "12:00 HS - MESA 3" },
+      { id: "O4", t1: "1° GRUPO 4", t2: "1° MEJOR 3°", w: 0, dif: "", hora: "12:00 HS - MESA 4" },
+      { id: "O5", t1: "1° GRUPO 5", t2: "2° GRUPO 6", w: 0, dif: "", hora: "12:00 HS - MESA 5" },
+      { id: "O6", t1: "1° GRUPO 6", t2: "2° GRUPO 5", w: 0, dif: "", hora: "12:00 HS - MESA 6" },
+      { id: "O7", t1: "2° GRUPO 1", t2: "2° GRUPO 4", w: 0, dif: "", hora: "12:15 HS - MESA 1" },
+      { id: "O8", t1: "2° GRUPO 2", t2: "2° GRUPO 3", w: 0, dif: "", hora: "12:15 HS - MESA 2" }
+    ],
+    cuartos: [
+      { id: "C1", t1: "Ganador O1", t2: "Ganador O8", w: 0, dif: "", hora: "12:30 HS - MESA 1" },
+      { id: "C2", t1: "Ganador O2", t2: "Ganador O7", w: 0, dif: "", hora: "12:30 HS - MESA 2" },
+      { id: "C3", t1: "Ganador O3", t2: "Ganador O6", w: 0, dif: "", hora: "12:30 HS - MESA 3" },
+      { id: "C4", t1: "Ganador O4", t2: "Ganador O5", w: 0, dif: "", hora: "12:30 HS - MESA 4" }
+    ],
+    semis: [
+      { id: "S1", t1: "Ganador C1", t2: "Ganador C4", w: 0, dif: "", hora: "12:45 HS - MESA 1" },
+      { id: "S2", t1: "Ganador C2", t2: "Ganador C3", w: 0, dif: "", hora: "12:45 HS - MESA 2" }
+    ],
+    final: [
+      { id: "F1", t1: "Ganador S1", t2: "Ganador S2", w: 0, dif: "", hora: "13:00 HS - MESA 1 CENTRAL" }
+    ]
+  };
+}
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem("pelmazzo_state_oficial_v1");
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return getDefaultState();
+}
+
+function saveState() {
+  try {
+    localStorage.setItem("pelmazzo_state_oficial_v1", JSON.stringify(state));
+  } catch (e) {}
+}
+
+function exportBackup() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+  const dlAnchor = document.createElement("a");
+  dlAnchor.setAttribute("href", dataStr);
+  dlAnchor.setAttribute("download", `pelmazzo_respaldo_${new Date().toISOString().slice(0,10)}.json`);
+  dlAnchor.click();
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const loaded = JSON.parse(e.target.result);
+      if (loaded && loaded.groups && loaded.octavos) {
+        state = loaded;
+        saveState();
+        document.getElementById("stageSelector").value = state.currentView || "armar_grupos";
+        renderControls();
+        drawCanvas();
+        alert("¡Respaldo de Pelmazzo cargado con éxito!");
+      } else {
+        alert("El archivo no tiene el formato correcto.");
+      }
+    } catch (err) {
+      alert("Error al leer el archivo de respaldo.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function getAllActiveTeams() {
+  const list = ["Por definir"];
+  state.groups.forEach(g => {
+    g.teams.forEach(t => {
+      if (t && t.trim() !== "" && !list.includes(t.trim().toUpperCase())) {
+        list.push(t.trim().toUpperCase());
+      }
+    });
+  });
+  return list;
+}
+
+function updateGroupTeamName(gIdx, tIdx, val) {
+  state.groups[gIdx].teams[tIdx] = val.toUpperCase();
+  saveState();
+  drawCanvas();
+}
+
+function addFourthTeam(gIdx) {
+  if (state.groups[gIdx].teams.length < 4) {
+    state.groups[gIdx].teams.push(`EQUIPO ${gIdx+1}-4`);
+    rebuildScheduleFromGroups(false);
+  }
+}
+
+function removeTeamSlot(gIdx, tIdx) {
+  if (state.groups[gIdx].teams.length > 3) {
+    state.groups[gIdx].teams.splice(tIdx, 1);
+    rebuildScheduleFromGroups(false);
+  }
+}
+
+function clearAllTeamNames() {
+  state.groups.forEach(g => {
+    g.teams = g.teams.map(() => "");
+  });
+  saveState();
+  renderControls();
+  drawCanvas();
+}
+
+function rebuildScheduleFromGroups(goToScheduleView) {
+  state.groups.forEach((g, gIdx) => {
+    g.teams = g.teams.map((t, i) => (t && t.trim() !== "") ? t.trim().toUpperCase() : `EQUIPO ${gIdx+1}-${i+1}`);
+  });
+  state.groupMatches = generateScheduleForGroups(state.groups);
+  if (goToScheduleView) {
+    state.currentView = "grupos_partidos";
+    document.getElementById("stageSelector").value = "grupos_partidos";
+  }
+  saveState();
+  renderControls();
+  drawCanvas();
+}
+
+function computeGroupStandings() {
+  const standingsByGroup = {};
+  state.groups.forEach(g => {
+    const stats = {};
+    g.teams.forEach((rawName, i) => {
+      const t = (rawName && rawName.trim() !== "") ? rawName.trim().toUpperCase() : `EQUIPO ${g.id}-${i+1}`;
+      stats[t] = { team: t, group: g.id, pj: 0, pg: 0, pp: 0, dif: 0 };
+    });
+
+    const gMatches = state.groupMatches.filter(m => m.group === g.id);
+    gMatches.forEach(m => {
+      if (m.w === 1 || m.w === 2) {
+        const d = parseInt(m.dif, 10) || 0;
+        const winner = m.w === 1 ? m.t1 : m.t2;
+        const loser = m.w === 1 ? m.t2 : m.t1;
+        if (stats[winner]) {
+          stats[winner].pj += 1;
+          stats[winner].pg += 1;
+          stats[winner].dif += d;
+        }
+        if (stats[loser]) {
+          stats[loser].pj += 1;
+          stats[loser].pp += 1;
+          stats[loser].dif -= d;
+        }
+      }
+    });
+
+    const sorted = Object.values(stats).sort((a, b) => {
+      if (b.pg !== a.pg) return b.pg - a.pg;
+      return b.dif - a.dif;
+    });
+    standingsByGroup[g.id] = sorted;
+  });
+
+  const thirds = Object.values(standingsByGroup).map(arr => arr[2]).filter(Boolean);
+  const sortedThirds = [...thirds].sort((a, b) => {
+    if (b.pg !== a.pg) return b.pg - a.pg;
+    return b.dif - a.dif;
+  });
+  const best4ThirdNames = sortedThirds.slice(0, 4).map(t => t.team);
+
+  return { standingsByGroup, sortedThirds, best4ThirdNames };
+}
+
+function autoQualifyToOctavos() {
+  const { standingsByGroup, sortedThirds } = computeGroupStandings();
+  state.octavos[0].t1 = standingsByGroup[1][0]?.team || "1° G1";
+  state.octavos[0].t2 = sortedThirds[3]?.team || "4° MEJOR 3°";
+
+  state.octavos[1].t1 = standingsByGroup[2][0]?.team || "1° G2";
+  state.octavos[1].t2 = sortedThirds[2]?.team || "3° MEJOR 3°";
+
+  state.octavos[2].t1 = standingsByGroup[3][0]?.team || "1° G3";
+  state.octavos[2].t2 = sortedThirds[1]?.team || "2° MEJOR 3°";
+
+  state.octavos[3].t1 = standingsByGroup[4][0]?.team || "1° G4";
+  state.octavos[3].t2 = sortedThirds[0]?.team || "1° MEJOR 3°";
+
+  state.octavos[4].t1 = standingsByGroup[5][0]?.team || "1° G5";
+  state.octavos[4].t2 = standingsByGroup[6][1]?.team || "2° G6";
+
+  state.octavos[5].t1 = standingsByGroup[6][0]?.team || "1° G6";
+  state.octavos[5].t2 = standingsByGroup[5][1]?.team || "2° G5";
+
+  state.octavos[6].t1 = standingsByGroup[1][1]?.team || "2° G1";
+  state.octavos[6].t2 = standingsByGroup[4][1]?.team || "2° G4";
+
+  state.octavos[7].t1 = standingsByGroup[2][1]?.team || "2° G2";
+  state.octavos[7].t2 = standingsByGroup[3][1]?.team || "2° G3";
+
+  propagateWinners();
+  switchStage("octavos");
+  document.getElementById("stageSelector").value = "octavos";
+}
+
+function propagateWinners() {
+  const getW = (arr, idx, fallback) => {
+    const m = arr[idx];
+    return m.w === 1 ? m.t1 : (m.w === 2 ? m.t2 : fallback);
+  };
+  state.cuartos[0].t1 = getW(state.octavos, 0, "Ganador O1");
+  state.cuartos[0].t2 = getW(state.octavos, 7, "Ganador O8");
+  state.cuartos[1].t1 = getW(state.octavos, 1, "Ganador O2");
+  state.cuartos[1].t2 = getW(state.octavos, 6, "Ganador O7");
+  state.cuartos[2].t1 = getW(state.octavos, 2, "Ganador O3");
+  state.cuartos[2].t2 = getW(state.octavos, 5, "Ganador O6");
+  state.cuartos[3].t1 = getW(state.octavos, 3, "Ganador O4");
+  state.cuartos[3].t2 = getW(state.octavos, 4, "Ganador O5");
+
+  state.semis[0].t1 = getW(state.cuartos, 0, "Ganador C1");
+  state.semis[0].t2 = getW(state.cuartos, 3, "Ganador C4");
+  state.semis[1].t1 = getW(state.cuartos, 1, "Ganador C2");
+  state.semis[1].t2 = getW(state.cuartos, 2, "Ganador C3");
+
+  state.final[0].t1 = getW(state.semis, 0, "Ganador S1");
+  state.final[0].t2 = getW(state.semis, 1, "Ganador S2");
+  saveState();
+}
+
+function renderControls() {
+  const container = document.getElementById("matchesControl");
+
+  // VISTA 0: ARMAR GRUPOS MANUALMENTE
+  if (state.currentView === "armar_grupos") {
+    container.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${state.groups.map((g, gIdx) => `
+          <div class="bg-[#0A0A0C] p-4 rounded-xl border border-[#D4AF37]/40 space-y-3">
+            <div class="flex justify-between items-center border-b border-white/10 pb-2">
+              <span class="font-display text-2xl gold-text">${g.name} (${g.teams.length} EQUIPOS)</span>
+              ${g.teams.length < 4 ? `
+                <button onclick="addFourthTeam(${gIdx})" class="text-[11px] bg-[#D4AF37]/20 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-black font-bold px-2.5 py-1 rounded-lg border border-[#D4AF37]/50 transition">
+                  + Sumar 4° Equipo
+                </button>
+              ` : `<span class="text-[10px] text-emerald-400 font-bold uppercase">Zona de 4</span>`}
+            </div>
+            <div class="space-y-2">
+              ${g.teams.map((t, tIdx) => `
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-[#D4AF37] w-5">${tIdx + 1}.</span>
+                  <input
+                    type="text"
+                    list="teamsPool"
+                    value="${t}"
+                    placeholder="Escribí o elegí la dupla..."
+                    oninput="updateGroupTeamName(${gIdx}, ${tIdx}, this.value)"
+                    class="w-full bg-[#141418] text-white text-xs font-bold px-3 py-2 rounded-lg border border-white/15 focus:border-[#D4AF37] outline-none uppercase"
+                  />
+                  ${g.teams.length > 3 ? `
+                    <button onclick="removeTeamSlot(${gIdx}, ${tIdx})" title="Quitar casillero" class="text-red-400 hover:text-red-300 font-bold px-2 py-1 text-xs bg-red-950/40 rounded-lg border border-red-800/40">✕</button>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    return;
+  }
+
+  // VISTAS 1 Y 2: PARTIDOS DE GRUPOS Y TABLAS
+  if (state.currentView === "grupos_partidos" || state.currentView === "grupos_tablas") {
+    const { standingsByGroup, best4ThirdNames } = computeGroupStandings();
+    container.innerHTML = state.groups.map(g => {
+      const gMatches = state.groupMatches.filter(m => m.group === g.id);
+      const tableRows = standingsByGroup[g.id] || [];
+
+      return `
+        <div class="bg-[#0A0A0C] p-4 rounded-xl border border-[#D4AF37]/30 space-y-4">
+          <div class="flex flex-wrap justify-between items-center border-b border-white/10 pb-2">
+            <span class="font-display text-2xl gold-text">${g.name} (${g.teams.length} EQUIPOS)</span>
+            <span class="text-[11px] text-gray-400">${gMatches.length} Partidos</span>
+          </div>
+
+          <div class="space-y-2.5">
+            ${gMatches.map(m => {
+              const globalIdx = state.groupMatches.findIndex(x => x.id === m.id);
+              return `
+                <div class="bg-[#141418] p-3 rounded-lg border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div class="w-32 shrink-0">
+                    <input type="text" value="T${m.turno} (${m.hora})" onchange="updateGroupMatchMeta(${globalIdx}, 'hora', this.value)" class="w-full bg-transparent text-[11px] font-bold text-[#D4AF37] outline-none" />
+                    <input type="text" value="${m.mesa}" onchange="updateGroupMatchMeta(${globalIdx}, 'mesa', this.value)" class="w-full bg-transparent text-[10px] text-gray-400 font-semibold outline-none uppercase" />
+                  </div>
+                  
+                  <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button onclick="setGroupWinner(${globalIdx}, 1)" class="text-left px-3 py-2 rounded-lg border border-white/15 text-xs font-bold flex items-center justify-between ${m.w===1?'winner-active':'bg-[#0A0A0C] text-white'}">
+                      <span class="truncate">${m.t1}</span>
+                      <span>🏆</span>
+                    </button>
+                    <button onclick="setGroupWinner(${globalIdx}, 2)" class="text-left px-3 py-2 rounded-lg border border-white/15 text-xs font-bold flex items-center justify-between ${m.w===2?'winner-active':'bg-[#0A0A0C] text-white'}">
+                      <span class="truncate">${m.t2}</span>
+                      <span>🏆</span>
+                    </button>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <label class="text-[10px] uppercase text-gray-400 font-bold">Dif (+):</label>
+                    <input type="number" min="0" max="30" placeholder="0" value="${m.dif}" oninput="updateGroupDif(${globalIdx}, this.value)" class="w-16 bg-[#0A0A0C] text-[#D4AF37] font-black text-center text-xs py-2 rounded-lg border border-[#D4AF37]/50 outline-none" />
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div class="bg-[#141418]/70 rounded-lg p-2.5 border border-white/5">
+            <div class="grid grid-cols-12 text-[10px] uppercase text-gray-400 font-bold pb-1 border-b border-white/10">
+              <div class="col-span-1">#</div>
+              <div class="col-span-6">Dupla</div>
+              <div class="col-span-2 text-center">PJ</div>
+              <div class="col-span-1 text-center">PG</div>
+              <div class="col-span-2 text-right">DIF</div>
+            </div>
+            ${tableRows.map((r, i) => {
+              const isQual = i < 2 || (i === 2 && best4ThirdNames.includes(r.team));
+              const difStr = r.dif > 0 ? `+${r.dif}` : `${r.dif}`;
+              return `
+                <div class="grid grid-cols-12 text-xs py-1.5 items-center border-b border-white/5 last:border-0 ${isQual ? 'text-[#D4AF37] font-bold' : 'text-gray-400'}">
+                  <div class="col-span-1">${i + 1}°</div>
+                  <div class="col-span-6 truncate">${r.team} ${isQual ? '✔' : ''}</div>
+                  <div class="col-span-2 text-center">${r.pj}</div>
+                  <div class="col-span-1 text-center">${r.pg}</div>
+                  <div class="col-span-2 text-right font-black">${difStr}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+    return;
+  }
+
+  // VISTAS ELIMINATORIAS (8VOS A FINAL)
+  const activeStage = state.currentView === "cuadro" ? "octavos" : state.currentView;
+  const list = state[activeStage];
+  const allTeams = getAllActiveTeams();
+
+  container.innerHTML = list.map((m, idx) => `
+    <div class="bg-[#0A0A0C] p-4 rounded-xl border border-white/10 space-y-3">
+      <div class="flex flex-wrap justify-between items-center gap-2 text-xs font-bold text-[#D4AF37]">
+        <span>LLAVE ${m.id}</span>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] text-gray-400">Ganó por Dif (+):</span>
+            <input type="number" min="0" max="30" placeholder="0" value="${m.dif || ''}" oninput="updateKnockoutDif('${activeStage}', ${idx}, this.value)" class="w-16 bg-[#141418] text-[#D4AF37] font-black text-center text-xs py-1.5 rounded-lg border border-[#D4AF37]/60 outline-none" />
+          </div>
+          <input type="text" value="${m.hora}" onchange="updateTime('${activeStage}', ${idx}, this.value)" class="bg-transparent text-right text-gray-400 focus:text-white border-b border-transparent focus:border-[#D4AF37] outline-none text-xs" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="flex items-center gap-2">
+          <select onchange="updateTeam('${activeStage}', ${idx}, 't1', this.value)" class="w-full bg-[#141418] text-xs font-bold p-2.5 rounded-lg border border-white/15">
+            ${allTeams.concat([m.t1]).filter((v,i,a)=>a.indexOf(v)===i).map(t => `<option value="${t}" ${t===m.t1?'selected':''}>${t}</option>`).join('')}
+          </select>
+          <button onclick="setWinner('${activeStage}', ${idx}, 1)" class="px-3 py-2 rounded-lg border border-[#D4AF37]/50 text-xs ${m.w===1?'winner-active':'bg-[#141418] text-gray-400'}">🏆</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <select onchange="updateTeam('${activeStage}', ${idx}, 't2', this.value)" class="w-full bg-[#141418] text-xs font-bold p-2.5 rounded-lg border border-white/15">
+            ${allTeams.concat([m.t2]).filter((v,i,a)=>a.indexOf(v)===i).map(t => `<option value="${t}" ${t===m.t2?'selected':''}>${t}</option>`).join('')}
+          </select>
+          <button onclick="setWinner('${activeStage}', ${idx}, 2)" class="px-3 py-2 rounded-lg border border-[#D4AF37]/50 text-xs ${m.w===2?'winner-active':'bg-[#141418] text-gray-400'}">🏆</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateGroupMatchMeta(idx, key, val) {
+  if (key === "hora") {
+    const clean = val.replace(/^T\d+\s*\(|\)$/g, "");
+    state.groupMatches[idx].hora = clean;
+  } else {
+    state.groupMatches[idx][key] = val.toUpperCase();
+  }
+  saveState();
+  drawCanvas();
+}
+
+function setGroupWinner(idx, winnerNum) {
+  state.groupMatches[idx].w = state.groupMatches[idx].w === winnerNum ? 0 : winnerNum;
+  saveState();
+  renderControls();
+  drawCanvas();
+}
+
+function updateGroupDif(idx, val) {
+  state.groupMatches[idx].dif = val;
+  saveState();
+  drawCanvas();
+}
+
+function updateKnockoutDif(stage, idx, val) {
+  state[stage][idx].dif = val;
+  saveState();
+  drawCanvas();
+}
+
+function updateTeam(stage, idx, key, val) {
+  state[stage][idx][key] = val;
+  propagateWinners();
+  renderControls();
+  drawCanvas();
+}
+
+function updateTime(stage, idx, val) {
+  state[stage][idx].hora = val;
+  saveState();
+  drawCanvas();
+}
+
+function setWinner(stage, idx, winnerNum) {
+  state[stage][idx].w = state[stage][idx].w === winnerNum ? 0 : winnerNum;
+  propagateWinners();
+  renderControls();
+  drawCanvas();
+}
+
+function switchStage(val) {
+  state.currentView = val;
+  saveState();
+  renderControls();
+  drawCanvas();
+}
+
+function resetAll() {
+  if (!confirm("¿Seguro que querés reiniciar todos los datos y partidos del torneo?")) return;
+  localStorage.removeItem("pelmazzo_state_oficial_v1");
+  state = getDefaultState();
+  document.getElementById("stageSelector").value = state.currentView;
+  renderControls();
+  drawCanvas();
+}
+
+function drawCanvas() {
+  const canvas = document.getElementById("storyCanvas");
+  const ctx = canvas.getContext("2d");
+
+  // Fondo Dark Luxury
+  const grad = ctx.createRadialGradient(540, 500, 100, 540, 960, 1100);
+  grad.addColorStop(0, "#132A1F");
+  grad.addColorStop(0.6, "#0A0A0C");
+  grad.addColorStop(1, "#050507");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1080, 1920);
+
+  // Marco Dorado
+  ctx.strokeStyle = "#D4AF37";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(40, 40, 1000, 1840);
+
+  // Encabezado
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#D4AF37";
+  ctx.font = "900 105px 'Bebas Neue', sans-serif";
+  ctx.fillText("PELMAZZO", 540, 175);
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "700 42px 'Montserrat', sans-serif";
+  ctx.fillText("TORNEO DE TRUCO 2v2", 540, 232);
+
+  const titles = {
+    armar_grupos: "FASES DE GRUPOS — APERTURA 06/11",
+    grupos_partidos: "CRONOGRAMA Y RESULTADOS (6 MESAS)",
+    grupos_tablas: "TABLAS DE POSICIONES (6 ZONAS)",
+    octavos: "OCTAVOS DE FINAL — RESULTADOS",
+    cuartos: "CUARTOS DE FINAL — RESULTADOS",
+    semis: "SEMIFINALES — RESULTADOS",
+    final: "GRAN FINAL — DEFINICIÓN",
+    cuadro: "CUADRO ELIMINATORIO EN VIVO"
+  };
+
+  ctx.fillStyle = "#D4AF37";
+  ctx.font = "900 32px 'Montserrat', sans-serif";
+  ctx.fillText(titles[state.currentView], 540, 292);
+
+  if (state.currentView === "armar_grupos") {
+    drawGroupsPosterCanvas(ctx);
+  } else if (state.currentView === "grupos_partidos") {
+    drawGroupMatchesCanvas(ctx);
+  } else if (state.currentView === "grupos_tablas") {
+    drawGroupTablesCanvas(ctx);
+  } else if (state.currentView === "cuadro") {
+    drawFullBracket(ctx);
+  } else {
+    drawStageList(ctx, state[state.currentView]);
+  }
+
+  // Pie de página oficial
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#D4AF37";
+  ctx.font = "700 28px 'Montserrat', sans-serif";
+  ctx.fillText("@pelmazzo.jme", 540, 1845);
+}
+
+function drawGroupsPosterCanvas(ctx) {
+  state.groups.forEach((g, idx) => {
+    const col = idx % 2;
+    const row = Math.floor(idx / 2);
+    const x = 68 + col * 484;
+    const y = 345 + row * 470;
+    const w = 460;
+    const h = 435;
+
+    ctx.fillStyle = "rgba(20, 20, 24, 0.94)";
+    ctx.strokeStyle = "#D4AF37";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 20);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#D4AF37";
+    ctx.font = "900 34px 'Montserrat', sans-serif";
+    ctx.fillText(`• ${g.name}`, x + 28, y + 60);
+
+    const spacing = g.teams.length === 4 ? 82 : 102;
+    g.teams.forEach((t, tIdx) => {
+      const ty = y + 135 + tIdx * spacing;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "800 23px 'Montserrat', sans-serif";
+      const label = (t && t.trim() !== "") ? t.trim().toUpperCase() : "POR DEFINIR";
+      const cleanLabel = label.length > 20 ? label.slice(0, 20) + "…" : label;
+      ctx.fillText(`- ${cleanLabel}`, x + 28, ty);
+    });
+  });
+}
+
+function drawGroupMatchesCanvas(ctx) {
+  const maxTurn = Math.max(4, ...state.groupMatches.map(m => m.turno || 1));
+  const turnos = [];
+  for (let n = 1; n <= maxTurn; n++) {
+    const sample = state.groupMatches.find(m => m.turno === n);
+    turnos.push({ num: n, hora: sample ? sample.hora : `${10 + n}:00 HS` });
+  }
+
+  let currentY = 330;
+  turnos.forEach(t => {
+    const tMatches = state.groupMatches
+      .filter(m => m.turno === t.num)
+      .sort((a, b) => a.mesa.localeCompare(b.mesa));
+    if (tMatches.length === 0) return;
+
+    const boxH = 68 + tMatches.length * 48;
+    ctx.fillStyle = "rgba(20, 20, 24, 0.94)";
+    ctx.strokeStyle = "#D4AF37";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(65, currentY, 950, boxH, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#D4AF37";
+    ctx.font = "900 24px 'Montserrat', sans-serif";
+    ctx.fillText(`TURNO ${t.num} — ${t.hora}`, 540, currentY + 36);
+
+    tMatches.forEach((m, idx) => {
+      const rowY = currentY + 78 + idx * 46;
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#D4AF37";
+      ctx.font = "900 18px 'Montserrat', sans-serif";
+      ctx.fillText(`${m.mesa.replace("MESA ", "M")} (G${m.group})`, 85, rowY);
+
+      ctx.fillStyle = m.w === 1 ? "#D4AF37" : (m.w === 2 ? "rgba(255,255,255,0.4)" : "#FFFFFF");
+      ctx.font = `${m.w === 1 ? "900" : "700"} 19px 'Montserrat', sans-serif`;
+      const t1Short = m.t1.length > 18 ? m.t1.slice(0, 18) + "…" : m.t1;
+      ctx.fillText(m.w === 1 ? `✔ ${t1Short}` : t1Short, 195, rowY);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.font = "700 16px 'Montserrat', sans-serif";
+      ctx.fillText("vs", 535, rowY);
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = m.w === 2 ? "#D4AF37" : (m.w === 1 ? "rgba(255,255,255,0.4)" : "#FFFFFF");
+      ctx.font = `${m.w === 2 ? "900" : "700"} 19px 'Montserrat', sans-serif`;
+      const t2Short = m.t2.length > 18 ? m.t2.slice(0, 18) + "…" : m.t2;
+      ctx.fillText(m.w === 2 ? `✔ ${t2Short}` : t2Short, 565, rowY);
+
+      if (m.w > 0 && m.dif !== "" && parseInt(m.dif, 10) > 0) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#D4AF37";
+        ctx.font = "900 18px 'Montserrat', sans-serif";
+        ctx.fillText(`+${m.dif}`, 990, rowY);
+      }
+    });
+
+    currentY += boxH + 16;
+  });
+}
+
+function drawGroupTablesCanvas(ctx) {
+  const { standingsByGroup, best4ThirdNames } = computeGroupStandings();
+
+  state.groups.forEach((g, idx) => {
+    const col = idx % 2;
+    const row = Math.floor(idx / 2);
+    const x = 68 + col * 484;
+    const y = 345 + row * 460;
+    const w = 460;
+    const h = 435;
+
+    ctx.fillStyle = "rgba(20, 20, 24, 0.94)";
+    ctx.strokeStyle = "#D4AF37";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#D4AF37";
+    ctx.font = "900 28px 'Montserrat', sans-serif";
+    ctx.fillText(`• ${g.name}`, x + 24, y + 46);
+
+    ctx.textAlign = "right";
+    ctx.font = "700 17px 'Montserrat', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText("PG     DIF", x + w - 24, y + 46);
+
+    const rows = standingsByGroup[g.id] || [];
+    const stepY = rows.length === 4 ? 82 : 102;
+    const boxH = rows.length === 4 ? 64 : 74;
+
+    rows.forEach((r, rIdx) => {
+      const ry = y + 110 + rIdx * stepY;
+      const isQual = rIdx < 2 || (rIdx === 2 && best4ThirdNames.includes(r.team));
+      const difText = r.dif > 0 ? `+${r.dif}` : `${r.dif}`;
+
+      ctx.fillStyle = isQual ? "rgba(212, 175, 55, 0.14)" : "rgba(255,255,255,0.03)";
+      ctx.beginPath();
+      ctx.roundRect(x + 18, ry - 36, w - 36, boxH, 10);
+      ctx.fill();
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = isQual ? "#D4AF37" : "#FFFFFF";
+      ctx.font = `${isQual ? "900" : "700"} 19px 'Montserrat', sans-serif`;
+      const shortName = r.team.length > 18 ? r.team.slice(0, 18) + "…" : r.team;
+      ctx.fillText(`${rIdx + 1}° ${shortName}`, x + 28, ry + 4);
+
+      ctx.textAlign = "right";
+      ctx.font = "900 21px 'Montserrat', sans-serif";
+      ctx.fillText(`${r.pg}`, x + w - 95, ry + 4);
+      ctx.fillStyle = r.dif > 0 ? "#D4AF37" : (r.dif < 0 ? "#f87171" : "#FFFFFF");
+      ctx.fillText(difText, x + w - 26, ry + 4);
+    });
+  });
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "700 21px 'Montserrat', sans-serif";
+  ctx.fillText("En DORADO los 16 clasificados a Octavos (1°, 2° y 4 mejores 3°)", 540, 1765);
+}
+
+function drawStageList(ctx, matches) {
+  const startY = 350;
+  const availableH = 1410;
+  const cardH = Math.min(235, Math.floor(availableH / matches.length) - 16);
+  const gap = 16;
+
+  matches.forEach((m, i) => {
+    const y = startY + i * (cardH + gap);
+
+    ctx.fillStyle = "rgba(20, 20, 24, 0.93)";
+    ctx.strokeStyle = m.w > 0 ? "#D4AF37" : "rgba(255,255,255,0.22)";
+    ctx.lineWidth = m.w > 0 ? 4 : 2;
+    ctx.beginPath();
+    ctx.roundRect(75, y, 930, cardH, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#D4AF37";
+    ctx.font = "700 21px 'Montserrat', sans-serif";
+    ctx.fillText(`LLAVE ${m.id}  •  ${m.hora}`, 110, y + 35);
+
+    const rowY1 = y + cardH * 0.54;
+    const rowY2 = y + cardH * 0.84;
+
+    drawTeamRow(ctx, m.t1, m.w === 1, m.w === 2, m.dif, 110, rowY1);
+    drawTeamRow(ctx, m.t2, m.w === 2, m.w === 1, m.dif, 110, rowY2);
+  });
+
+  if (state.currentView === "final" && matches[0].w > 0) {
+    const champ = matches[0].w === 1 ? matches[0].t1 : matches[0].t2;
+    const finalDif = matches[0].dif ? ` (GANÓ POR +${matches[0].dif})` : "";
+    ctx.fillStyle = "#D4AF37";
+    ctx.beginPath();
+    ctx.roundRect(75, 780, 930, 390, 24);
+    ctx.fill();
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#0A0A0C";
+    ctx.font = "900 44px 'Montserrat', sans-serif";
+    ctx.fillText("🏆 CAMPEONES PELMAZZO 🏆", 540, 880);
+    ctx.font = "900 68px 'Bebas Neue', sans-serif";
+    ctx.fillText(champ, 540, 980);
+    ctx.font = "900 36px 'Montserrat', sans-serif";
+    ctx.fillText(`PREMIO: $50.000${finalDif}`, 540, 1080);
+  }
+}
+
+function drawTeamRow(ctx, name, isWinner, isLoser, dif, x, y) {
+  ctx.textAlign = "left";
+  ctx.fillStyle = isWinner ? "#D4AF37" : (isLoser ? "rgba(255,255,255,0.38)" : "#FFFFFF");
+  ctx.font = `${isWinner ? "900" : "700"} 26px 'Montserrat', sans-serif`;
+  ctx.fillText(isWinner ? `✔ ${name}` : name, x, y);
+
+  if (isWinner) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#D4AF37";
+    ctx.font = "900 22px 'Montserrat', sans-serif";
+    const difBadge = dif && parseInt(dif, 10) > 0 ? `GANÓ POR +${dif} ▶` : "AVANZA ▶";
+    ctx.fillText(difBadge, 970, y);
+  }
+}
+
+function drawFullBracket(ctx) {
+  const sections = [
+    { title: "OCTAVOS DE FINAL", data: state.octavos, y: 365 },
+    { title: "CUARTOS DE FINAL", data: state.cuartos, y: 900 },
+    { title: "SEMIFINALES", data: state.semis, y: 1240 },
+    { title: "GRAN FINAL", data: state.final, y: 1500 }
+  ];
+
+  sections.forEach(sec => {
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#D4AF37";
+    ctx.font = "900 26px 'Montserrat', sans-serif";
+    ctx.fillText(sec.title, 80, sec.y);
+
+    sec.data.forEach((m, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const boxW = sec.data.length === 1 ? 920 : 445;
+      const bx = 80 + col * 475;
+      const by = sec.y + 18 + row * 110;
+
+      ctx.fillStyle = "rgba(20,20,24,0.92)";
+      ctx.strokeStyle = m.w > 0 ? "#D4AF37" : "rgba(255,255,255,0.2)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, boxW, 92, 12);
+      ctx.fill();
+      ctx.stroke();
+
+      const d1 = (m.w === 1 && m.dif) ? ` (+${m.dif})` : "";
+      const d2 = (m.w === 2 && m.dif) ? ` (+${m.dif})` : "";
+
+      ctx.fillStyle = m.w === 1 ? "#D4AF37" : "#FFFFFF";
+      ctx.font = "700 19px 'Montserrat', sans-serif";
+      ctx.fillText(`${m.id}: ${m.t1}${d1}`, bx + 16, by + 36);
+
+      ctx.fillStyle = m.w === 2 ? "#D4AF37" : "#FFFFFF";
+      ctx.fillText(`vs ${m.t2}${d2}`, bx + 16, by + 72);
+    });
+  });
+}
+
+function downloadStory() {
+  const canvas = document.getElementById("storyCanvas");
+  const link = document.createElement("a");
+  link.download = `pelmazzo_${state.currentView}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+document.fonts.ready.then(() => {
+  propagateWinners();
+  renderControls();
+  drawCanvas();
+});
+</script>
+</body>
+</html>
